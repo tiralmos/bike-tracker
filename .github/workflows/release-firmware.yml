@@ -55,27 +55,29 @@ jobs:
 
       # Devices check releases/latest/download/manifest.json for updates, and
       # the configurator's Docker image downloads the binaries from the same place.
+      # The manifest is written inside the workspace because the upload action
+      # runs in a Docker container that can only see the workspace, not /tmp.
       - name: Generate Manifest
         run: |
-          mkdir -p /tmp/manifest
-          cp firmware/manifest-template.json /tmp/manifest/manifest.json
+          mkdir -p manifest
+          cp firmware/manifest-template.json manifest/manifest.json
 
           tag_name="${{ github.event.release.tag_name }}"
-          sed -i "s@VERSION@${tag_name}@" /tmp/manifest/manifest.json
+          sed -i "s@VERSION@${tag_name}@" manifest/manifest.json
 
           base_download_url="https://github.com/${{ github.repository }}/releases/download/${tag_name}"
 
-          sed -i "s@FACTORY_BIN_PATH@${base_download_url}/firmware.factory.bin@" /tmp/manifest/manifest.json
+          sed -i "s@FACTORY_BIN_PATH@${base_download_url}/firmware.factory.bin@" manifest/manifest.json
 
           ota_md5sum=$(md5sum /tmp/firmware-build/firmware.ota.bin | cut -d ' ' -f 1)
-          sed -i "s@OTA_BIN_PATH@${base_download_url}/firmware.ota.bin@" /tmp/manifest/manifest.json
-          sed -i "s@OTA_BIN_MD5@${ota_md5sum}@" /tmp/manifest/manifest.json
+          sed -i "s@OTA_BIN_PATH@${base_download_url}/firmware.ota.bin@" manifest/manifest.json
+          sed -i "s@OTA_BIN_MD5@${ota_md5sum}@" manifest/manifest.json
 
-          sed -i "s@OTA_RELEASE_URL@${{ github.event.release.html_url }}@" /tmp/manifest/manifest.json
+          sed -i "s@OTA_RELEASE_URL@${{ github.event.release.html_url }}@" manifest/manifest.json
 
       - name: Upload Manifest
         uses: skx/github-action-publish-binaries@release-1.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: "/tmp/manifest/manifest.json"
+          args: "manifest/manifest.json"

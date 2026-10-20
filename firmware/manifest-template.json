@@ -1,5 +1,5 @@
 {
-  "name": "Transit Tracker Firmware",
+  "name": "Bike Tracker Firmware",
   "version": "VERSION",
   "home_assistant_domain": "esphome",
   "new_install_prompt_erase": true,

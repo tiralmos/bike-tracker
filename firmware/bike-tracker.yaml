@@ -1,8 +1,8 @@
 substitutions:
-  name: "transit-tracker"
-  friendly_name: "Transit Tracker"
+  name: "bike-tracker"
+  friendly_name: "Bike Tracker"
   project_version: "dev"
-  pixolletta_file_path: "https://raw.githubusercontent.com/EastsideUrbanism/transit-tracker/main/firmware/fonts/Pixolletta8px.ttf"
+  pixolletta_file_path: "https://raw.githubusercontent.com/tiralmos/bike-tracker/main/firmware/fonts/Pixolletta8px.ttf"
 
 esphome:
   name: ${name}
@@ -10,11 +10,11 @@ esphome:
   name_add_mac_suffix: true
   min_version: 2026.9.1
   project:
-    name: "Eastside Urbanism.Transit Tracker"
+    name: "tiralmos.Bike Tracker"
     version: ${project_version}
 
 dashboard_import:
-  package_import_url: github://EastsideUrbanism/transit-tracker/firmware/transit-tracker.yaml@${project_version}
+  package_import_url: github://tiralmos/bike-tracker/firmware/bike-tracker.yaml@${project_version}
 
 esp32:
   variant: esp32s3
@@ -40,7 +40,11 @@ external_components:
     components: [ hub75 ]
   - source: github://tjhorner/esphome-custom-components@157c1c216ab296fd2cecc197728f9cbb909344d3
     components: [ serial_rpc, lis3dh, project_version ]
-  - source: github://tjhorner/esphome-transit-tracker@c54676e5fa0ad1aaccd9a5e047d2f642a4a53629
+  - source:
+      type: git
+      url: https://github.com/tiralmos/esphome-bike-tracker
+      ref: main
+    components: [ bike_tracker ]
 
 logger:
   level: DEBUG
@@ -71,7 +75,7 @@ ota:
         - sensor.template.publish:
             id: last_ota_error
             state: !lambda return x;
-        - display.page.show: transit_schedule
+        - display.page.show: stations_page
     on_end:
       then:
         - lambda: id(ota_progress) = 100.0f;
@@ -88,7 +92,7 @@ update:
   - platform: http_request
     id: update_http_request
     name: Firmware Update
-    source: https://transit-tracker.eastsideurbanism.org/firmware/manifest.json
+    source: https://github.com/tiralmos/bike-tracker/releases/latest/download/manifest.json
     on_update_available:
       then:
         - script.execute: update_firmware
@@ -105,16 +109,16 @@ switch:
       - lambda: |-
           id(matrix).set_rotation(esphome::display::DisplayRotation::DISPLAY_ROTATION_0_DEGREES);
   - platform: template
-    id: scroll_headsigns_config
-    name: "Scroll Headsigns"
+    id: scroll_station_names_config
+    name: "Scroll Station Names"
     icon: "mdi:arrow-expand-horizontal"
     optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
+    restore_mode: RESTORE_DEFAULT_ON
     entity_category: "config"
     turn_on_action:
-      - lambda: id(tracker).set_scroll_headsigns(true);
+      - lambda: id(tracker).set_scroll_station_names(true);
     turn_off_action:
-      - lambda: id(tracker).set_scroll_headsigns(false);
+      - lambda: id(tracker).set_scroll_station_names(false);
   - platform: template
     id: auto_update_config
     name: "Auto-Update"
@@ -155,11 +159,17 @@ text:
         lambda: |
           id(tracker).set_feed_code(id(feed_code_config)->state);
   - <<: *config_text_common
-    id: schedule_config
+    id: stations_config
     on_value:
       then:
         lambda: |
-          id(tracker).set_schedule_string(id(schedule_config)->state);
+          id(tracker).set_stations_string(id(stations_config)->state);
+  - <<: *config_text_common
+    id: station_names_config
+    on_value:
+      then:
+        lambda: |
+          id(tracker).set_station_names_from_text(id(station_names_config)->state);
   - <<: *config_text_common
     id: header_text_config
     on_value:
@@ -172,85 +182,8 @@ text:
       then:
         lambda: |
           id(tracker).set_abbreviations_from_text(id(abbreviations_config)->state);
-  - <<: *config_text_common
-    id: route_styles_config
-    on_value:
-      then:
-        lambda: |
-          id(tracker).set_route_styles_from_text(id(route_styles_config)->state);
-  - <<: *config_text_common
-    id: now_str_config
-    initial_value: "Now"
-    on_value:
-      then:
-        lambda: |-
-          id(tracker).get_localization()->set_now_string(id(now_str_config)->state);
-  - <<: *config_text_common
-    id: min_long_str_config
-    initial_value: "min"
-    on_value:
-      then:
-        lambda: |-
-          id(tracker).get_localization()->set_minutes_long_string(id(min_long_str_config)->state);
-  - <<: *config_text_common
-    id: min_short_str_config
-    initial_value: "m"
-    on_value:
-      then:
-        lambda: |-
-          id(tracker).get_localization()->set_minutes_short_string(id(min_short_str_config)->state);
-  - <<: *config_text_common
-    id: hours_short_str_config
-    initial_value: "h"
-    on_value:
-      then:
-        lambda: |-
-          id(tracker).get_localization()->set_hours_short_string(id(hours_short_str_config)->state);
 
 select:
-  - platform: template
-    id: time_display_config
-    optimistic: true
-    restore_value: true
-    options:
-      - "departure"
-      - "arrival"
-    on_value:
-      then:
-        lambda: |-
-          id(tracker).set_display_departure_times(id(time_display_config)->current_option() == "departure");
-  - platform: template
-    id: time_units_config
-    optimistic: true
-    restore_value: true
-    options:
-      - "long"
-      - "short"
-      - "none"
-    on_value:
-      then:
-        lambda: |-
-          transit_tracker::UnitDisplay unit_display;
-          if (id(time_units_config)->current_option() == "long") {
-            unit_display = transit_tracker::UnitDisplay::UNIT_DISPLAY_LONG;
-          } else if (id(time_units_config)->current_option() == "short") {
-            unit_display = transit_tracker::UnitDisplay::UNIT_DISPLAY_SHORT;
-          } else {
-            unit_display = transit_tracker::UnitDisplay::UNIT_DISPLAY_NONE;
-          }
-
-          id(tracker).set_unit_display(unit_display);
-  - platform: template
-    id: list_mode_config
-    optimistic: true
-    restore_value: true
-    options:
-      - "sequential"
-      - "nextPerRoute"
-    on_value:
-      then:
-        lambda: |-
-          id(tracker).set_list_mode(id(list_mode_config)->current_option());
   - platform: template
     id: orientation_config
     name: "Display Orientation"
@@ -358,7 +291,7 @@ binary_sensor:
             condition:
               display.is_displaying_page: ip_address_page
             then:
-              - display.page.show: transit_schedule
+              - display.page.show: stations_page
             else:
               - display.page.show: ip_address_page
   - platform: gpio
@@ -453,9 +386,9 @@ display:
     e_pin: 21
     brightness: 255
     pages:
-      - id: transit_schedule
+      - id: stations_page
         lambda: |-
-          id(tracker).draw_schedule();
+          id(tracker).draw_stations();
       - id: ip_address_page
         lambda: |-
           int x = it.get_width() / 2;
@@ -493,12 +426,12 @@ font:
 time:
   - platform: sntp
     id: sntp_time
-    timezone: America/Los_Angeles
+    timezone: Europe/Paris
 
 web_server:
   version: 3
 
-transit_tracker:
+bike_tracker:
   id: tracker
 
 serial_rpc:

@@ -1,15 +1,15 @@
-# Transit Tracker
+# Bike Tracker
 
-<p align="center">
-  <img src="docs/static/img/transit-tracker.webp" alt="Transit Tracker Logo" width="400" />
-</p>
+A live Vélo'v (Lyon bike-share) board for the [Transit Tracker](https://github.com/EastsideUrbanism/transit-tracker) LED display. Each row shows a station's name, its free docks, mechanical bikes and electric bikes.
 
-This repository contains the firmware and documentation for Transit Tracker, an open-source DIY public transit arrivals board for your home.
+This repository contains the firmware. To set everything up on your own computer with Docker, follow the guide: **[Running Bike Tracker for Lyon Vélo'v](https://github.com/tiralmos/bike-tracker-api/blob/main/docs/deployment/deploy-velov.md)**.
 
-Please see the complete documentation [here](https://eastsideurbanism.github.io/transit-tracker)!
+The rest of the original Transit Tracker documentation (hardware, wiring, frame) is in [`docs/`](docs/) and applies unchanged.
 
 ## Related Projects
 
-- [Transit Tracker API](https://github.com/tjhorner/transit-tracker-api) &mdash; the service which syndicates and streams schedule data to Transit Tracker devices
-- [Transit Tracker ESPHome Component](https://github.com/tjhorner/esphome-transit-tracker) &mdash; the ESPHome custom component which powers the Transit Tracker firmware
-- [Transit Tracker Configurator](https://github.com/tjhorner/transit-tracker-configurator) &mdash; the web-based configuration tool for Transit Tracker devices
+- [Bike Tracker API](https://github.com/tiralmos/bike-tracker-api) &mdash; reads the Vélo'v GBFS feed and streams station availability to the display
+- [Bike Tracker ESPHome Component](https://github.com/tiralmos/esphome-bike-tracker) &mdash; the ESPHome component which draws the stations
+- [Bike Tracker Configurator](https://github.com/tiralmos/bike-tracker-configurator) &mdash; the web-based tool to flash the display and pick stations
+
+Forked from [EastsideUrbanism/transit-tracker](https://github.com/EastsideUrbanism/transit-tracker).

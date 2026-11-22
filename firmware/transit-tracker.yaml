@@ -2,6 +2,9 @@ substitutions:
   name: "transit-tracker"
   friendly_name: "Transit Tracker"
   project_version: "dev"
+  # Brightness after each restart until the configurator sets one:
+  # "Unchanged", or a percentage from the select's options (e.g. "50%")
+  default_brightness: "Unchanged"
   pixolletta_file_path: "https://raw.githubusercontent.com/tiralmos/transit-tracker-lyon-firmware/main/firmware/fonts/Pixolletta8px.ttf"
 
 esphome:
@@ -159,15 +162,39 @@ text:
         lambda: |
           id(tracker).set_feed_code(id(feed_code_config)->state);
   # The rows to show, one per line: "t;routeId,stopId[,offsetSeconds]" for a
-  # transit line at a stop, or "b;stationId" for a bike-share station.
+  # transit line at a stop, or "b;stationId" for a bike-share station. A line
+  # "s;HHMM-HHMM" starts a time slot whose rows are shown only between those
+  # times. A setting holds at most 255 characters, so the rows continue in
+  # rows_config_2 to rows_config_4.
   - <<: *config_text_common
     id: rows_config
     on_value:
       then:
         - script.execute: apply_rows
-  # Custom row names, one per line: "routeId,stopId;name" or "stationId;name".
+  - <<: *config_text_common
+    id: rows_config_2
+    on_value:
+      then:
+        - script.execute: apply_rows
+  - <<: *config_text_common
+    id: rows_config_3
+    on_value:
+      then:
+        - script.execute: apply_rows
+  - <<: *config_text_common
+    id: rows_config_4
+    on_value:
+      then:
+        - script.execute: apply_rows
+  # Custom row names, one per line: "routeId,stopId;name" or "stationId;name",
+  # continued in row_names_config_2.
   - <<: *config_text_common
     id: row_names_config
+    on_value:
+      then:
+        - script.execute: apply_rows
+  - <<: *config_text_common
+    id: row_names_config_2
     on_value:
       then:
         - script.execute: apply_rows
@@ -263,6 +290,18 @@ select:
           }
 
           id(tracker).set_unit_display(unit_display);
+  # Brightness the display starts at after each restart, set from the
+  # configurator. The buttons still change it until the next restart.
+  # "Unchanged" keeps the last brightness set with the buttons.
+  - platform: template
+    id: brightness_config
+    optimistic: true
+    restore_value: true
+    initial_option: "${default_brightness}"
+    options: ["Unchanged", "5%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"]
+    on_value:
+      then:
+        - script.execute: apply_brightness
   - platform: template
     id: orientation_config
     name: "Display Orientation"
@@ -301,14 +340,18 @@ status_led:
     number: GPIO13
 
 script:
-  # Applies rows_config and row_names_config, or the bike-only firmware's
+  # Applies rows_config(_2.._4) and row_names_config(_2), or the bike-only firmware's
   # stations_config and station_names_config while rows_config is empty.
   - id: apply_rows
     mode: queued
     then:
       - lambda: |-
           std::string rows = id(rows_config).state;
+          for (const std::string &more : {id(rows_config_2).state, id(rows_config_3).state, id(rows_config_4).state}) {
+            if (!more.empty()) rows += "\n" + more;
+          }
           std::string names = id(row_names_config).state;
+          if (!id(row_names_config_2).state.empty()) names += "\n" + id(row_names_config_2).state;
           if (rows.empty()) {
             std::string stations = id(stations_config).state;
             size_t start = 0;
@@ -323,6 +366,15 @@ script:
           }
           id(tracker).set_row_names_from_text(names);
           id(tracker).set_rows_from_text(rows);
+  - id: apply_brightness
+    then:
+      - lambda: |-
+          std::string option = id(brightness_config)->current_option().c_str();
+          if (option == "Unchanged" || option.empty()) return;
+          float brightness = atoi(option.c_str()) / 100.0f;
+          auto call = id(display_brightness).turn_on();
+          call.set_brightness(brightness);
+          call.perform();
   - id: dim_display
     parameters:
       up: bool

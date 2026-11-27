@@ -228,6 +228,14 @@ text:
       then:
         lambda: |
           id(tracker).set_route_styles_from_text(id(route_styles_config)->state);
+  # Where the weather comes from: "latitude,longitude" (Lyon if empty).
+  # The configurator sets it to the first Vélo'v station.
+  - <<: *config_text_common
+    id: weather_location_config
+    on_value:
+      then:
+        lambda: |
+          id(tracker).set_weather_location_from_text(id(weather_location_config)->state);
   - <<: *config_text_common
     id: now_str_config
     initial_value: "Now"
@@ -302,6 +310,40 @@ select:
     on_value:
       then:
         - script.execute: apply_brightness
+  # Optional extras, set from the configurator
+  # Disruption alerts on the transit rows (needs rtServiceAlerts in the API)
+  - platform: template
+    id: alerts_config
+    optimistic: true
+    restore_value: true
+    initial_option: "off"
+    options: ["off", "on"]
+    on_value:
+      then:
+        lambda: |-
+          id(tracker).set_show_alerts(id(alerts_config)->current_option() == "on");
+  # Vélo'v logo color: "red" (always) or "temperature"
+  - platform: template
+    id: logo_color_config
+    optimistic: true
+    restore_value: true
+    initial_option: "red"
+    options: ["red", "temperature"]
+    on_value:
+      then:
+        lambda: |-
+          id(tracker).set_temperature_logo(id(logo_color_config)->current_option() == "temperature");
+  # Weather icon and temperature on the first Vélo'v row
+  - platform: template
+    id: weather_config
+    optimistic: true
+    restore_value: true
+    initial_option: "off"
+    options: ["off", "on"]
+    on_value:
+      then:
+        lambda: |-
+          id(tracker).set_show_weather(id(weather_config)->current_option() == "on");
   - platform: template
     id: orientation_config
     name: "Display Orientation"
